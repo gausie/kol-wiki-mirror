@@ -13,6 +13,6 @@ Development log
     * `sed -i 's/<username>�<\/username>/<username>½<\/username>/g' <path to dump *-history.xml>` 
 
 3. Import to fresh MediaWiki instance
-    * Go to maintenance folder and run `./run importDump --report --username-prefix="" --no-updates <path to dump *-history.xml>
+    * Go to maintenance folder and run `./run importDump --report --username-prefix="" --no-updates <path to dump *-history.xml>`
     * I got just under 9 revisions per second, which as of the current size of the wiki (see https://kol.coldfront.net/thekolwiki/index.php/Special:Statistics) takes almost 24 full hours to import
 
