@@ -20,6 +20,7 @@ Development log
         * `wfLoadExtension( 'ParserFunctions' );`
         * `wfLoadExtension(' PhpTags ');` (I shelled into the container and ran `git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/PhpTags` in the extensions folder. Not ideal but fine for now)
         * `wfLoadExtension( 'PhpTagsFunctions' );` (Also shelled)
+    * There is also some custom code which I am implementing in TheKoLWikiExt, you would just mount that folder appropriately to your docker container.
     * `./run rebuildrecentchanges`
     * `./run initSiteStats --update`
     * Import images `./run importImages <pathtoimages folder>` (the dump generator creates .desc files for each image but they are not suitable for the --comment-ext flag. I think they can just be ignored)
