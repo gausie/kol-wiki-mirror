@@ -1,5 +1,5 @@
 import {execa} from "execa";
-import {format, subHours} from "date-fns";
+import {format} from "date-fns";
 
 type RecentChange = {
   type: "edit" | "new";
