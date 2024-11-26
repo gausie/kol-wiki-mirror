@@ -1,3 +1,4 @@
 LocalSettings.php
 dumps/*
 !dumps/.gitkeep
+node_modules/
