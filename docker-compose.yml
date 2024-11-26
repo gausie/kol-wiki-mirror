@@ -1,0 +1,35 @@
+# MediaWiki with MariaDB
+#
+# Access via "http://localhost:11111"
+#   (or "http://$(docker-machine ip):11111" if using docker-machine)
+version: '3'
+services:
+  mediawiki:
+    image: mediawiki
+    restart: always
+    ports:
+      - 11111:80
+    links:
+      - database
+    volumes:
+      - images:/var/www/html/images
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php
+      - ./LocalSettings.php:/var/www/html/LocalSettings.TheKoLWiki.php
+      - ./dumps:/var/dumps
+      - ./TheKoLWikiExt:/var/www/html/extensions/TheKoLWikiExt
+  # This key also defines the name of the database host used during setup instead of the default "localhost"
+  database:
+    image: mariadb
+    restart: always
+    environment:
+      # @see https://phabricator.wikimedia.org/source/mediawiki/browse/master/includes/DefaultSettings.php
+      MYSQL_DATABASE: kolwiki
+      MYSQL_USER: kolwiki
+      MYSQL_PASSWORD: kolwikipass
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    volumes:
+      - db:/var/lib/mysql
+
+volumes:
+  images:
+  db:
