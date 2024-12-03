@@ -2,7 +2,8 @@
   "name": "kolmafia-wiki-mirror",
   "module": "index.ts",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prettier": "^3.4.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

@@ -1,8 +1,9 @@
 import {execa} from "execa";
 import {format} from "date-fns";
+import {basename} from "node:path";
 
 type RecentChange = {
-  type: "edit" | "new";
+  type: "edit" | "new" | "log";
   ns: number;
   title: string;
   pageid: number;
@@ -64,23 +65,55 @@ async function exportRevision(c: RecentChange) {
 
   const existingPage = await findPageInfo(c);
 
-  exported = exported.replace(`<id>${c.pageid}</id>`, `<id>${existingPage.pageid}</id>`);
+  if (existingPage) {
+    exported = exported.replace(`<id>${c.pageid}</id>`, `<id>${existingPage.pageid}</id>`);
+  }
 
   if (c.ns > 99) exported = exported.replace(`<ns>${c.ns}</ns>`,`<ns>${c.ns + 2900}</ns>`);
 
   return exported;
 }
 
+async function getImageUrl(filePage: string) {
+  const response = await fetch(`https://kol.coldfront.net/thekolwiki/api.php?action=query&format=json&prop=imageinfo&iiprop=url&titles=${filePage}`);
+  const result = await response.json() as { query: { pages: { [pageid: number]: { pageid: number, imageinfo: { 0: { url: string }}}}} };
+
+  const pages = result.query.pages;
+  if (!pages) throw new Error(`Could not discover url for file in ${filePage}`);
+
+  const url = Object.values(pages)[0]?.imageinfo[0]?.url;
+  if (!url) throw new Error(`Could not discover url for file in ${filePage}`);
+
+  return url;
+}
+
 async function applyChanges(changes: RecentChange[]) {
   for (let i = changes.length; i > 0; i--) {
     const c = changes[i - 1];
-    const xml = await exportRevision(c);
-    const res = await execa({ input: xml })`docker exec -i kol-wiki-mediawiki-1 /var/www/html/maintenance/run importDump --username-prefix=""`;
-    console.log(`${c.type} ${c.title}: ${res.stdout.split("\n")[0]}`);
+
+    if (c.type === "log" && c.title.startsWith("File:")) {
+      const url = (await getImageUrl(c.title)).replace(/^https/, "http");
+      const filename = basename(url);
+      await execa`docker exec -i kol-wiki-mediawiki-1 curl ${url} -o /var/dumps/imageImport/${filename}`;
+      const res = await execa`docker exec -i kol-wiki-mediawiki-1 /var/www/html/maintenance/run importImages ${[
+        "/var/dumps/imageImport",
+        "--comment",
+        c.comment.replace("\"", "\\\""),
+        "--timestamp",
+        c.timestamp,
+      ]}`;
+      await execa`docker exec -i kol-wiki-mediawiki-1 rm /var/dumps/imageImport/${filename}`;
+      await execa({ input: c.title })`docker exec -i kol-wiki-mediawiki-1 /var/www/html/maintenance/run purgeList`
+      console.log(`${c.type} ${c.title}: ${res.stdout.split("\n")[2]}`);
+    } else {
+      const xml = await exportRevision(c);
+      const res = await execa({ input: xml })`docker exec -i kol-wiki-mediawiki-1 /var/www/html/maintenance/run importDump`;
+      console.log(`${c.type} ${c.title}: ${res.stdout.split("\n")[0]}`);
+    }
   }
 
-  const from = format(new Date(changes[changes.length - 1].timestamp).getTime() - 1000, "YYYYMMddHHmmss");
-  const to = format(new Date(changes[0].timestamp).getTime() + 1000, "YYYYMMddHHmmss");
+  const from = format(new Date(changes[changes.length - 1].timestamp).getTime() - 1000, "yyyyMMddHHmmss");
+  const to = format(new Date(changes[0].timestamp).getTime() + 1000, "yyyyMMddHHmmss");
 
   await execa`docker exec kol-wiki-mediawiki-1 /var/www/html/maintenance/run rebuildrecentchanges --from=${from} --to=${to}`;
   await execa`docker exec kol-wiki-mediawiki-1 /var/www/html/maintenance/run initSiteStats`;
@@ -91,6 +124,7 @@ async function main() {
   const latestMirrored = mirrorChanges.query.recentchanges[0];
 
   const changes = await getChanges();
+
   const indexOfLatestMirrored = changes.query.recentchanges.findIndex((c) => compareChanges(c, latestMirrored));
 
   const unmirrored = changes.query.recentchanges.slice(0, indexOfLatestMirrored);
